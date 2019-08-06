@@ -174,7 +174,7 @@
         msg: " Please login to ssh {{ inventory_hostname }} "
     - name: Change to Superuser
       debug:
-        msg: " run 'sudo su'"
+        msg: " run 'sudo su - '"
     - name: Change dir
       debug:
         msg: " run 'cd /root/awx/installer'"
