@@ -15,7 +15,7 @@
         - device-mapper-persistent-data
         - lvm2
 
-    - name: shell install docker-ce docker-ce-cli containerd.io
+    - name: shell install docker repository
       shell: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
 
     - name: yum install docker-ce docker-ce-cli containerd.io
