@@ -1,0 +1,198 @@
+- hosts: all
+  gather_facts: yes
+  become: yes
+
+  tasks:
+
+    - name: yum install yum-utils device-mapper-persistent-data lvm2 gcc-c++ make
+      yum:
+        name: "{{ packages }}"
+        state: latest
+      vars:
+        packages:
+        - yum-utils
+        - device-mapper-persistent-data
+        - lvm2
+        - gcc-c++
+        - make
+
+#    - name: shell install docker repository
+#      shell: yum-config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
+#
+#    - name: yum install docker-ce docker-ce-cli containerd.io
+#      yum:
+#        name: "{{ packages }}"
+#        state: latest
+#      vars:
+#        packages:
+#        - docker-ce
+#        - docker-ce-cli
+#        - containerd.io
+
+    - name: shell install docker
+      shell: amazon-linux-extras install docker -y
+
+    - name: shell install dicker-comporse
+      shell: curl -L "https://github.com/docker/compose/releases/download/1.25.0/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+      shell: chmod 755 /usr/local/bin/docker-compose
+
+    - name: yum install epel-release
+      shell: sudo amazon-linux-extras install -y epel
+#      yum:
+#        name: "{{ packages }}"
+#        state: latest
+#      vars:
+#        packages:
+#        - epel-release
+
+    - name: yum install python-pip
+      yum:
+        name: "{{ packages }}"
+        state: latest
+      vars:
+        packages:
+        - python-pip
+        - python-devel
+
+    - name: pip upgrade
+      shell: pip install pip --upgrade
+
+    - name: pip install docker
+      shell: pip install docker --ignore-installed  requests
+      ignore_errors: True
+
+    - name: pip install  docker-compose
+      shell: pip install docker-compose --ignore-installed  requests
+      ignore_errors: True
+
+    - name: systemctl docker enable start
+      systemd:
+        state: started
+        enabled: yes
+        name: docker
+
+    - name: yum install ansible
+      yum:
+        name: "{{ packages }}"
+        state: latest
+      vars:
+        packages:
+        - ansible
+
+#    - name: yum remove git
+#      yum:
+#        name: git
+#        state: removed
+
+#    - name: yum git2 repository install
+#      yum:
+#        name: "{{ packages }}"
+#        state: latest
+#      vars:
+#        packages:
+#        - https://centos7.iuscommunity.org/ius-release.rpm
+
+    - name: yum install perl-TermReadKey perl-Error libsecret
+      yum:
+        name: "{{ packages }}"
+        state: latest
+      vars:
+        packages:
+        - perl-TermReadKey
+        - perl-Error
+        - libsecret
+
+#    - name: yum install git2u
+#      yum:
+#        enablerepo: ius
+#        name: "{{ packages }}"
+#        state: latest
+#      vars:
+#        packages:
+#        - git2u
+
+    - name: get install script by npm
+      get_url:
+        url: https://rpm.nodesource.com/setup_8.x
+        dest: /root/setup_8.x.sh
+    - name: chenge mode insgtall script
+      file:
+        path: /root/setup_8.x.sh
+        mode: '0755'
+    - name: install npm
+      shell: /root/setup_8.x.sh
+
+    - name: yum install nodejs
+      yum:
+        name: "{{ packages }}"
+        state: latest
+      vars:
+        packages:
+        - nodejs
+
+    - name: remove ansible awx dir
+      shell: rm -rf /root/awx
+
+    - name: make ansible awx dir
+      shell: rm -rf /root/awx
+
+    - name: git get ansible awx
+      git:
+        repo: 'https://github.com/ansible/awx'
+        dest: /root/awx
+
+    - name: remote yum update all?
+      pause: prompt="remote server yum update all? (y/n)"
+      register: yn
+
+    - name: yum all update
+      yum:
+        name: '*'
+        state: latest
+      when:  yn.user_input ==  'y'
+
+    - name:  need swapfile ?
+      pause: prompt="need swap?(2GB) (y/n)"
+      register: yn
+    - shell: swapoff -a && rm -rf /swapfile
+      when:  yn.user_input ==  'y'
+    - shell: dd if=/dev/zero of=/swapfile bs=1M count=2048 && chmod 600 /swapfile && mkswap /swapfile && swapon /swapfile
+      when:  yn.user_input ==  'y'
+    - blockinfile:
+        path: /etc/fstab
+        block: |
+          /swapfile                                 swap                    swap    defaults        0 0
+      when:  yn.user_input ==  'y'
+
+    - name: server reboot?
+      pause: prompt="server reboot ok? (y/n)"
+      register: yn
+
+    - name: machine reboot
+      shell: reboot
+      when:  yn.user_input ==  'y'
+
+    - debug:
+        msg: " Please login to ssh {{ inventory_hostname }} "
+      when:  yn.user_input ==  'y'
+    - debug:
+        msg: " run 'sudo su'"
+      when:  yn.user_input ==  'y'
+    - debug:
+        msg: " run 'cd /root/awx/installer'"
+      when:  yn.user_input ==  'y'
+
+    - name: machine reboot wait
+      wait_for_connection:
+        connect_timeout: 180
+        sleep: 5
+        delay: 5
+        timeout: 180
+      when:  yn.user_input ==  'y'
+
+    - debug:
+        msg: " run 'cd /root/awx/installer'"
+      when:  yn.user_input ==  'n'
+    - debug:
+        msg: " run 'ansible-playbook -i inventory install.yml'"
+      when:  yn.user_input ==  'n'
